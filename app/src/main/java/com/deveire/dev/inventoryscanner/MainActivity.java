@@ -33,6 +33,7 @@ public class MainActivity extends AppCompatActivity
 
         claimedIDs = new ArrayList<String>();
         claimedUsers = new ArrayList<String>();
+        claimedDate = new ArrayList<Date>();
 
         Calendar aCalender = Calendar.getInstance();
         DateFormat simpleFormat = new SimpleDateFormat("dd:MM:yyyy hh:mm");
