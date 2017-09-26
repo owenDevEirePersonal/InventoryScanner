@@ -1,14 +1,16 @@
 package com.deveire.dev.inventoryscanner;
 
+import android.content.SharedPreferences;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import java.lang.reflect.Array;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -20,9 +22,15 @@ public class MainActivity extends AppCompatActivity
 {
     private TextView orderInfoText;
     private EditText orderIDEditText;
+    private Button resetButton;
+
     private ArrayList<String> claimedIDs;
     private ArrayList<String> claimedUsers;
-    private ArrayList<Date> claimedDate;
+    private ArrayList<Date> claimedDates;
+
+    private DateFormat simpleFormat;
+
+    private SharedPreferences savedData;
 
 
     @Override
@@ -31,9 +39,11 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        claimedIDs = new ArrayList<String>();
-        claimedUsers = new ArrayList<String>();
-        claimedDate = new ArrayList<Date>();
+        simpleFormat = new SimpleDateFormat("dd:MM:yyyy hh:mm");
+
+        savedData = getSharedPreferences("SavedClaims", MODE_PRIVATE);
+        loadSavedClaims();
+
 
         Calendar aCalender = Calendar.getInstance();
         DateFormat simpleFormat = new SimpleDateFormat("dd:MM:yyyy hh:mm");
@@ -42,7 +52,7 @@ public class MainActivity extends AppCompatActivity
         claimedUsers.add("René Artois");
         try
         {
-            claimedDate.add(simpleFormat.parse("24:09:2017 03:15"));
+            claimedDates.add(simpleFormat.parse("24:09:2017 03:15"));
         }
         catch (ParseException e)
         {
@@ -76,12 +86,24 @@ public class MainActivity extends AppCompatActivity
 
             }
         });
+
+        resetButton = (Button) findViewById(R.id.resetButton);
+        resetButton.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View view)
+            {
+                claimedUsers = new ArrayList<String>();
+                claimedIDs = new ArrayList<String>();
+                claimedDates = new ArrayList<Date>();
+                orderInfoText.setText("-Please Scan Tag-");
+            }
+        });
     }
 
     private void displayOrderDetails(String orderIDin)
     {
         Calendar aCalender = Calendar.getInstance();
-        DateFormat simpleFormat = new SimpleDateFormat("dd:MM:yyyy hh:mm");
         String details;
 
         boolean orderHasBeenClaimed = false;
@@ -104,22 +126,77 @@ public class MainActivity extends AppCompatActivity
                         " Received: " + simpleFormat.format(aCalender.getTime()) + "\n\n Signed for by:" + " Joe Exotic";
                     claimedUsers.add("Joe Exotic");
                     claimedIDs.add(orderIDin);
-                    claimedDate.add(aCalender.getTime());
+                    claimedDates.add(aCalender.getTime());
                     break;
 
                 case "0456B2527D3680": details = " ID: " + orderIDin + "\n\n Item Name: Glutten-Free Pre-Sliced Bread Loaves\n\n Quanity: 100 Loaves\n\n Allegens: None \n\n Dispatched: 24/09/2017 10:01\n\n" +
                         " Received: " + simpleFormat.format(aCalender.getTime()) + "\n\n Signed for by:" + " Joe Exotic";
                     claimedUsers.add("Joe Exotic");
                     claimedIDs.add(orderIDin);
-                    claimedDate.add(aCalender.getTime());
+                    claimedDates.add(aCalender.getTime());
                     break;
                 default: details = "Order with ID " + orderIDin + " not found.";
             }
         }
         else
         {
-            details = " Order " + claimedIDs.get(claimedOrderIndex) + " has already been claimed by " + claimedUsers.get(claimedOrderIndex) + " at " + simpleFormat.format(claimedDate.get(claimedOrderIndex)) + ".";
+            details = " Order " + claimedIDs.get(claimedOrderIndex) + " has already been claimed by " + claimedUsers.get(claimedOrderIndex) + " at " + simpleFormat.format(claimedDates.get(claimedOrderIndex)) + ".";
         }
         orderInfoText.setText(details);
     }
+
+    @Override
+    protected void onPause()
+    {
+        super.onPause();
+        saveClaims();
+
+    }
+
+    private void loadSavedClaims()
+    {
+        claimedIDs = new ArrayList<String>();
+        claimedUsers = new ArrayList<String>();
+        claimedDates = new ArrayList<Date>();
+
+        int claimsCount = savedData.getInt("claimsCount", 0);
+        for(int i = 1; i <= claimsCount; i++)
+        {
+            claimedUsers.add(savedData.getString("claimedUser" + i, "ERROR"));
+            claimedIDs.add(savedData.getString("claimedID" + i, "ERROR"));
+
+            try
+            {
+                claimedDates.add(simpleFormat.parse(savedData.getString("claimedDates" + i, "ERROR")));
+            }
+            catch (ParseException e)
+            {
+                Log.e("InventoryReader", "ERROR trying to load claims: " + e.toString());
+            }
+
+        }
+    }
+
+    private void saveClaims()
+    {
+        SharedPreferences.Editor edit = savedData.edit();
+        edit.putInt("claimsCount", claimedUsers.size());
+        for(int i = 1; i <= claimedUsers.size(); i++)
+        {
+            edit.putString("claimedUser" + i, claimedUsers.get(i - 1));
+            edit.putString("claimedID" + i, claimedIDs.get(i - 1));
+            edit.putString("claimedDates" + i, simpleFormat.format(claimedDates.get(i - 1)));
+        }
+        edit.commit();
+    }
 }
+
+
+
+
+
+/*
+
+
+
+ */
