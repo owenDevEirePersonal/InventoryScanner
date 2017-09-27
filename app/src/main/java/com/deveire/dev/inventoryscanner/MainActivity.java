@@ -22,6 +22,7 @@ public class MainActivity extends AppCompatActivity
 {
     private TextView orderInfoText;
     private EditText orderIDEditText;
+    private EditText userNameEditText;
     private Button resetButton;
 
     private ArrayList<String> claimedIDs;
@@ -60,6 +61,7 @@ public class MainActivity extends AppCompatActivity
         }
 
         orderInfoText = (TextView) findViewById(R.id.orderInfoText);
+        userNameEditText = (EditText) findViewById(R.id.userNameEditText);
         orderIDEditText = (EditText) findViewById(R.id.orderIDEditText);
         orderIDEditText.addTextChangedListener(new TextWatcher()
         {
@@ -123,15 +125,15 @@ public class MainActivity extends AppCompatActivity
             switch (orderIDin)
             {
                 case "0475A5527D3680": details = " ID: " + orderIDin + "\n\n Item Name: Eggs\n\n Quanity: 16 Cartons(12 eggs each)\n\n Allegens: Eggs \n\n Dispatched: 25/09/2017 10:06\n\n" +
-                        " Received: " + simpleFormat.format(aCalender.getTime()) + "\n\n Signed for by:" + " Joe Exotic";
-                    claimedUsers.add("Joe Exotic");
+                        " Received: " + simpleFormat.format(aCalender.getTime()) + "\n\n Signed for by:" + userNameEditText.getText().toString();
+                    claimedUsers.add(userNameEditText.getText().toString());
                     claimedIDs.add(orderIDin);
                     claimedDates.add(aCalender.getTime());
                     break;
 
                 case "0456B2527D3680": details = " ID: " + orderIDin + "\n\n Item Name: Glutten-Free Pre-Sliced Bread Loaves\n\n Quanity: 100 Loaves\n\n Allegens: None \n\n Dispatched: 24/09/2017 10:01\n\n" +
-                        " Received: " + simpleFormat.format(aCalender.getTime()) + "\n\n Signed for by:" + " Joe Exotic";
-                    claimedUsers.add("Joe Exotic");
+                        " Received: " + simpleFormat.format(aCalender.getTime()) + "\n\n Signed for by:" + userNameEditText.getText().toString();
+                    claimedUsers.add(userNameEditText.getText().toString());
                     claimedIDs.add(orderIDin);
                     claimedDates.add(aCalender.getTime());
                     break;
