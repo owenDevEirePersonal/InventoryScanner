@@ -566,6 +566,41 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
             }
         });
     }
+
+
+    private String sortThroughRecognizerResults(String[] results, String[] matchablePhrases)
+    {
+        for (String aResult: results)
+        {
+            Log.i("Recog", "Sorting results for result: " + aResult);
+            for (String aPhrase: matchablePhrases)
+            {
+                Log.i("Recog", "Sorting results for result: " + aResult + " and Phrase: " + aPhrase);
+                if(aResult.matches(aPhrase))
+                {
+                    Log.i("Recog", "Match Found");
+                    return aPhrase;
+                }
+            }
+        }
+        Log.i("Recog", "No matches found, returning empty string \"\" .");
+        return "";
+    }
+
+    private String sortThroughRecognizerResults(String[] results, String matchablePhrase)
+    {
+        for (String aResult: results)
+        {
+            Log.i("Recog", "Sorting results for result: " + aResult + " and Phrase: " + matchablePhrase);
+            if(aResult.matches(matchablePhrase))
+            {
+                Log.i("Recog", "Match Found");
+                return matchablePhrase;
+            }
+        }
+        Log.i("Recog", "No matches found, returning empty string \"\" .");
+        return "";
+    }
 //++++++++[/Text To Speech Code]
 
 }
