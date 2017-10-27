@@ -13,7 +13,6 @@ import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.Layout;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
@@ -71,6 +70,16 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
     private SpeechRecognizer recognizer;
     private Intent recogIntent;
+    private int pingingRecogFor;
+    private static final int pingingRecogFor_Quality = 1;
+    private static final int pingingRecogFor_Quantity = 2;
+    private static final int pingingRecogFor_EditQuality = 3;
+    private static final int pingingRecogFor_EditQuantity = 4;
+    private static final int pingingRecogFor_doEdit = 5;
+    private static final int pingingRecogFor_None = 6;
+
+    private int claimToEditIndex;
+
 
     //[Text To Speech Variables]
     private TextToSpeech toSpeech;
@@ -287,7 +296,12 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         }
         else
         {
-            details = " Order " + claimedIDs.get(claimedOrderIndex) + " has already been claimed by " + claimedUsers.get(claimedOrderIndex) + " at " + simpleFormat.format(claimedDates.get(claimedOrderIndex)) + " with a reported quantity of " + claimedQuantities.get(claimedOrderIndex) + " in " + claimedQualities.get(claimedOrderIndex) + " quality.";
+            details = " Order " + claimedIDs.get(claimedOrderIndex) + " has already been claimed by " + claimedUsers.get(claimedOrderIndex) + " at " + simpleFormat.format(claimedDates.get(claimedOrderIndex)) + " with a reported quantity of " + claimedQuantities.get(claimedOrderIndex) + " in " + claimedQualities.get(claimedOrderIndex) + " quality. \nWould you like to edit it?";
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+            {
+                //speak leaves out the date from details
+                toSpeech.speak(" Order " + claimedIDs.get(claimedOrderIndex) + " has already been claimed by " + claimedUsers.get(claimedOrderIndex) + " with a reported quantity of " + claimedQuantities.get(claimedOrderIndex) + " in " + claimedQualities.get(claimedOrderIndex) + " quality. \nWould you like to edit it?" , TextToSpeech.QUEUE_FLUSH, null,"DoEdit");
+            }
         }
         orderInfoText.setText(details);
 
@@ -423,7 +437,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
             case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: Log.e("Recog", "SPEECH TIMEOUT ERROR"); break;
             case SpeechRecognizer.ERROR_SERVER: Log.e("Recog", "SERVER ERROR"); break;
             case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: Log.e("Recog", "BUSY ERROR"); break;
-            case SpeechRecognizer.ERROR_NO_MATCH: Log.e("Recog", "NO MATCH ERROR"); break;
+            case SpeechRecognizer.ERROR_NO_MATCH: Log.e("Recog", "NO MATCH ERROR"); toSpeech.speak("No response Detected, please repeat", TextToSpeech.QUEUE_FLUSH, null, "repeat"); break;
             case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: Log.e("Recog", "NETWORK TIMEOUT ERROR"); break;
             case SpeechRecognizer.ERROR_NETWORK: Log.e("Recog", "TIMEOUT ERROR"); break;
             case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: Log.e("Recog", "INSUFFICENT PERMISSIONS ERROR"); break;
@@ -439,69 +453,173 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         ArrayList<String> matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
         Log.i("Recog", "Results recieved: " + matches);
 
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
         {
-            switch (matches.get(0).split(" ")[0])
+            switch (pingingRecogFor)
             {
-                case "bad":
-                    tempclaimedQuality = ("Bad");
-                    toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                    Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
-                    break;
-                case "subpar":
-                    tempclaimedQuality = ("Sub-par");
-                    toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                    Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
-                    break;
-                case "ok":
-                    tempclaimedQuality = ("Ok");
-                    toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                    Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
-                    break;
-                case "good":
-                    tempclaimedQuality = ("Good");
-                    toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                    Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
-                    break;
-                default:
-                    if (tempclaimedQuality != null)
+                case pingingRecogFor_Quality:
+
+                    switch (matches.get(0).split(" ")[0])
                     {
-                        try
+                        case "bad":
+                            tempclaimedQuality = ("Bad");
+                            toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                            Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
+                        break;
+                        case "subpar":
+                            tempclaimedQuality = ("Sub-par");
+                            toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                            Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
+                        break;
+                        case "ok":
+                            tempclaimedQuality = ("Ok");
+                            toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                            Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
+                        break;
+                        case "good":
+                            tempclaimedQuality = ("Good");
+                            toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                            Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
+                        break;
+                        default:
+                            if (tempclaimedQuality != null)
+                            {
+
+                            }
+                            else
+                            {
+                                toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityAsk");
+                                Log.i("Recog", "Unrecognised Quality, please repeat.");
+                            }
+                        break;
+                    }
+                break;
+
+                case pingingRecogFor_Quantity:
+                    try
+                    {
+                        int quantity = Integer.parseInt(matches.get(0));
+                        tempclaimedQuantity = quantity;
+                        toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
+                        Log.i("Recog", "Quantity Recorded as: " + quantity);
+                        claimedIDs.add(tempclaimedID);
+                        claimedDates.add(tempclaimedDate);
+                        claimedQualities.add(tempclaimedQuality);
+                        claimedQuantities.add(tempclaimedQuantity);
+                        claimedUsers.add(tempclaimedUser);
+
+                        String details = currentOrderDetails + "\n\n Claimed by: " + userNameEditText.getText().toString() +
+                                "\n\n Reported Quality: " + claimedQualities.get(claimedQualities.size() - 1) +
+                                "\n\n Reported Quantity: " + claimedQuantities.get(claimedQuantities.size() - 1);
+
+                        orderInfoText.setText(details);
+
+                        tempclaimedQuality = null;
+                        tempclaimedUser = null;
+                        tempclaimedQuantity = null;
+                        tempclaimedDate = null;
+                        tempclaimedID = null;
+                    }
+                    catch (Exception e)
+                    {
+                        Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
+                        toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                        Log.i("Recog", "Response matches no known number, please repeat.");
+                    }
+                break;
+
+
+                case pingingRecogFor_EditQuality:
+
+                    switch (matches.get(0).split(" ")[0])
+                    {
+                        case "bad":
+                            tempclaimedQuality = ("Bad");
+                            toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                            Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
+                            break;
+                        case "subpar":
+                            tempclaimedQuality = ("Sub-par");
+                            toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                            Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
+                            break;
+                        case "ok":
+                            tempclaimedQuality = ("Ok");
+                            toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                            Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
+                            break;
+                        case "good":
+                            tempclaimedQuality = ("Good");
+                            toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                            Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
+                            break;
+                        default:
+                            if (tempclaimedQuality != null)
+                            {
+
+                            }
+                            else
+                            {
+                                toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
+                                Log.i("Recog", "Unrecognised Quality, please repeat.");
+                            }
+                            break;
+                    }
+                break;
+
+                case pingingRecogFor_EditQuantity:
+                    try
+                    {
+                        int quantity = Integer.parseInt(matches.get(0));
+                        tempclaimedQuantity = quantity;
+                        toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
+                        Log.i("Recog", "Quantity Recorded as: " + quantity);
+                        //claimedIDs.set(claimToEditIndex, tempclaimedID);
+                        //claimedDates.set(claimToEditIndex,tempclaimedDate);
+                        claimedQualities.set(claimToEditIndex, tempclaimedQuality);
+                        claimedQuantities.set(claimToEditIndex, tempclaimedQuantity);
+                        //claimedUsers.set(claimToEditIndex, tempclaimedUser);
+
+                        String details = "Edit Complete: Order " + claimedIDs.get(claimToEditIndex) + " claimed by " + claimedUsers.get(claimToEditIndex) + " at " + claimedDates.get(claimToEditIndex) + "\n\n"  +
+                                "\n\n Reported Quality: " + claimedQualities.get(claimToEditIndex) +
+                                "\n\n Reported Quantity: " + claimedQuantities.get(claimToEditIndex);
+
+                        orderInfoText.setText(details);
+
+                        tempclaimedQuality = null;
+                        tempclaimedUser = null;
+                        tempclaimedQuantity = null;
+                        tempclaimedDate = null;
+                        tempclaimedID = null;
+                    }
+                    catch (Exception e)
+                    {
+                        Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
+                        toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                        Log.i("Recog", "Response matches no known number, please repeat.");
+                    }
+                break;
+
+                case pingingRecogFor_doEdit:
+                    if(matches.get(0).split(" ")[0].matches("yes"))
+                    {
+                        int anIndex = 0;
+                        for (String anID:claimedIDs)
                         {
-                            int quantity = Integer.parseInt(matches.get(0));
-                            tempclaimedQuantity = quantity;
-                            toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
-                            Log.i("Recog", "Quality Recorded as: " + quantity);
-                            claimedIDs.add(tempclaimedID);
-                            claimedDates.add(tempclaimedDate);
-                            claimedQualities.add(tempclaimedQuality);
-                            claimedQuantities.add(tempclaimedQuantity);
-                            claimedUsers.add(tempclaimedUser);
-
-                            String details = currentOrderDetails + "\n\n Claimed by: " + userNameEditText.getText().toString() +
-                                    "\n\n Reported Quality: " + claimedQualities.get(claimedQualities.size() - 1) +
-                                    "\n\n Reported Quantity: " + claimedQuantities.get(claimedQuantities.size() - 1);
-
-                            orderInfoText.setText(details);
-
-                            tempclaimedQuality = null;
-                            tempclaimedUser = null;
-                            tempclaimedQuantity = null;
-                            tempclaimedDate = null;
-                            tempclaimedID = null;
-                        } catch (Exception e)
+                            if(anID.matches(currentOrderID))
+                            {
+                                claimToEditIndex = anIndex;
+                                break;
+                            }
+                            anIndex++;
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
                         {
-                            Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
-                            toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Response matches no known number, please repeat.");
+                            toSpeech.speak("What is the quality of the goods delivered:", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
                         }
                     }
-                    else
-                    {
-                        toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityAsk");
-                        Log.i("Recog", "Unrecognised Quality, please repeat.");
-                    }
-
+                break;
             }
         }
     }
@@ -518,56 +636,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         Log.e("Recog", "onEvent");
     }
 //++++++++[/Recognition Listener Code]
-
-
-//++++++++[Text To Speech Code]
-    private void setupTextToSpeech()
-    {
-        toSpeech = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
-            @Override
-            public void onInit(int status)
-            {
-                Log.i("Text To Speech Update", "onInit Complete");
-                toSpeech.setLanguage(Locale.ENGLISH);
-                endOfSpeakIndentifier = new HashMap();
-                endOfSpeakIndentifier.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "endOfSpeech");
-                toSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener()
-                {
-                    @Override
-                    public void onStart(String utteranceId)
-                    {
-                        Log.i("Text To Speech Update", "onStart called");
-                    }
-
-                    @Override
-                    public void onDone(String utteranceId)
-                    {
-                        if(utteranceId.matches("QualityAsk") || utteranceId.matches("QuantityAsk"))
-                        {
-                            runOnUiThread(new Runnable()
-                            {
-                                @Override
-                                public void run()
-                                {
-                                    recognizer.startListening(recogIntent);
-                                }
-                            });
-
-                        }
-                        //toSpeech.shutdown();
-                    }
-
-                    @Override
-                    public void onError(String utteranceId)
-                    {
-                        Log.i("Text To Speech Update", "ERROR DETECTED");
-                    }
-                });
-            }
-        });
-    }
-
-
+//++++++++[Recognition Other Code]
     private String sortThroughRecognizerResults(String[] results, String[] matchablePhrases)
     {
         for (String aResult: results)
@@ -601,6 +670,68 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         Log.i("Recog", "No matches found, returning empty string \"\" .");
         return "";
     }
+//++++++++[/Recognition Other Code]
+
+//++++++++[Text To Speech Code]
+    private void setupTextToSpeech()
+    {
+        toSpeech = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status)
+            {
+                Log.i("Text To Speech Update", "onInit Complete");
+                toSpeech.setLanguage(Locale.ENGLISH);
+                endOfSpeakIndentifier = new HashMap();
+                endOfSpeakIndentifier.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "endOfSpeech");
+                toSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener()
+                {
+                    @Override
+                    public void onStart(String utteranceId)
+                    {
+                        Log.i("Text To Speech Update", "onStart called");
+                    }
+
+                    @Override
+                    public void onDone(final String utteranceId)
+                    {
+                        runOnUiThread(new Runnable()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                switch (utteranceId)
+                                {
+                                    case "QualityAsk": pingingRecogFor = pingingRecogFor_Quality; recognizer.startListening(recogIntent); break;
+                                    case "QuantityAsk": pingingRecogFor = pingingRecogFor_Quantity; recognizer.startListening(recogIntent); break;
+                                    case "QualityEdit": pingingRecogFor = pingingRecogFor_EditQuality; recognizer.startListening(recogIntent); break;
+                                    case "QuantityEdit": pingingRecogFor = pingingRecogFor_EditQuantity; recognizer.startListening(recogIntent); break;
+                                    case "DoEdit": pingingRecogFor = pingingRecogFor_doEdit; recognizer.startListening(recogIntent); break;
+                                    case "repeat": recognizer.startListening(recogIntent); break;
+                                }
+                            }
+                        });
+
+                        /*if(utteranceId.matches("QualityAsk") || utteranceId.matches("QuantityAsk"))
+                        {
+                            pingingRecogFor = pingingRecogFor_Quality
+                            recognizer.startListening(recogIntent);
+                        }
+                        else
+                        {
+                            recognizer.startListening(recogIntent);
+                        }*/
+                        //toSpeech.shutdown();
+                    }
+
+                    @Override
+                    public void onError(String utteranceId)
+                    {
+                        Log.i("Text To Speech Update", "ERROR DETECTED");
+                    }
+                });
+            }
+        });
+    }
 //++++++++[/Text To Speech Code]
 
 }
@@ -609,7 +740,5 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
 
 /*
-
-
 
  */
