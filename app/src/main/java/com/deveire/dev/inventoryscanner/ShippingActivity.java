@@ -21,7 +21,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import java.text.DateFormat;
-import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -32,11 +31,12 @@ import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MainActivity extends AppCompatActivity implements RecognitionListener
+public class ShippingActivity extends AppCompatActivity implements RecognitionListener
 {
     private TextView orderInfoText;
+    private TextView kitchenStockText;
     private EditText orderIDEditText;
-    private EditText userNameEditText;
+    //private EditText userNameEditText;
     private Button resetButton;
 
     private ConstraintLayout qandQLayout;
@@ -48,9 +48,11 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private Button submitButton;
     private Button addProductButton;
 
-
     private Timer waitForRestOfBarcodeTimer;
     private boolean isWaitingForRestOfBarcode;
+
+    private ArrayList<Product> allProducts;
+    private ArrayList<Product> productsInKitchenStock;
 
     private ArrayList<String> claimedIDs;
     private ArrayList<String> claimedUsers;
@@ -84,30 +86,15 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private static final int pingingRecogFor_EditQuality = 3;
     private static final int pingingRecogFor_EditQuantity = 4;
     private static final int pingingRecogFor_doEdit = 5;
-    private static final int pingingRecogFor_Weight = 6;
-    private static final int pingingRecogFor_MealName = 7;
-    private static final int pingingRecogFor_MealServings = 8;
-    private static final int pingingRecogFor_None = 9;
+    private static final int pingingRecogFor_None = 6;
 
     private int claimToEditIndex;
 
-    //[Stocker Variables]
-    private ArrayList<Product> allProducts;
-    private Product currentProduct;
-    private Product currentMealValues;
-    private String currentMealName;
-    private int currentMealServings;
-    private boolean scanningProducts;
-    //[/Stocker Variables]
 
     //[Text To Speech Variables]
     private TextToSpeech toSpeech;
     private String speechInText;
     private HashMap<String, String> endOfSpeakIndentifier;
-
-    private static final String speechID_AskForWeight = "AskingForWeight";
-    private static final String speechID_AskForMealName = "AskingForMealName";
-    private static final String speechID_AskForMealServings = "AskingforMealServings";
     //[/Text To Speech Variables]
 
 
@@ -115,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_shipping);
 
         qandQLayout = (ConstraintLayout) findViewById(R.id.qandQLayout);
         submitButton = (Button) findViewById(R.id.submitButton);
@@ -135,6 +122,9 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         savedData = getSharedPreferences("SavedClaims", MODE_PRIVATE);
         loadSavedClaims();
 
+        allProducts = new ArrayList<Product>();
+        productsInKitchenStock = new ArrayList<Product>();
+        loadProducts();
 
         Calendar aCalender = Calendar.getInstance();
         DateFormat simpleFormat = new SimpleDateFormat("dd:MM:yyyy hh:mm");
@@ -153,7 +143,8 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         }
 
         orderInfoText = (TextView) findViewById(R.id.orderInfoText);
-        userNameEditText = (EditText) findViewById(R.id.userNameEditText);
+        kitchenStockText = (TextView) findViewById(R.id.kitchenStockText);
+        //userNameEditText = (EditText) findViewById(R.id.userNameEditText);
         orderIDEditText = (EditText) findViewById(R.id.orderIDEditText);
         orderIDEditText.addTextChangedListener(new TextWatcher()
         {
@@ -166,7 +157,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2)
             {
-                if(!isWaitingForRestOfBarcode && !orderIDEditText.getText().toString().matches("") && orderIDEditText.getText().toString().length() > 0)//14)
+                if(!isWaitingForRestOfBarcode && !orderIDEditText.getText().toString().matches("") && orderIDEditText.getText().toString().length() == 10)//14)
                 {
                     isWaitingForRestOfBarcode = true;
 
@@ -182,29 +173,13 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                                 {
                                     Log.i("Order Update", "Scanned Order ID = " + orderIDEditText.getText().toString());
                                     currentOrderID = orderIDEditText.getText().toString();
-                                    //displayOrderDetails(currentOrderID);
-                                    if(scanningProducts)
-                                    {
-                                        for (Product aProduct: allProducts)
-                                        {
-                                            if(aProduct.getBarcode().matches(currentOrderID))
-                                            {
-                                                currentProduct = aProduct;
-                                                toSpeech.speak("What is the weight of " + currentProduct.getName() + "?", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForWeight);
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        toSpeech.speak("What is the name of the meal?", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForMealName);
-                                    }
+                                    displayProduct(currentOrderID);
                                     orderIDEditText.setText("");
                                     isWaitingForRestOfBarcode = false;
                                 }
                             });
                         }
-                    }, 300);
+                    }, 500);
 
                 }
             }
@@ -276,7 +251,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                 if((currentQuality == QUALITY_BAD || currentQuality == QUALITY_SUBPAR || currentQuality == QUALITY_OK || currentQuality == QUALITY_GOOD) && !(quantityEditText.getText().toString().matches("")))
                 {
                     qandQLayout.setVisibility(View.INVISIBLE);
-                    submitClaim();
+                    //submitClaim();
                 }
             }
         });
@@ -295,15 +270,6 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
             }
         });
 
-        addProductButton = (Button) findViewById(R.id.addProductButton);
-        addProductButton.setOnClickListener(new View.OnClickListener()
-        {
-            @Override
-            public void onClick(View v)
-            {
-                startActivity(new Intent(getApplicationContext(), AddProductActivity.class));
-            }
-        });
 
         waitForRestOfBarcodeTimer = new Timer();
         isWaitingForRestOfBarcode = false;
@@ -318,19 +284,96 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         recogIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
 
 
-        //[Stocker Intialization]
-        allProducts = new ArrayList<Product>();
-        loadProducts();
-        currentMealName = "No Meal";
-        currentMealServings = 1;
-        currentMealValues = new Product("", "", "", 0.0f, 0.0f , 0.0f, 0.0f, 0.0f, new Date());
-        scanningProducts = false;
-        //[/Stocker Intialization]
-
         setupTextToSpeech();
     }
 
-    private void displayOrderDetails(String orderIDin)
+    private void displayProduct(String inBarcode)
+    {
+        orderInfoText.setText("Scanned Product not found in database.");
+        for (Product aProduct: allProducts)
+        {
+            if(aProduct.getBarcode().matches(inBarcode))
+            {
+                orderInfoText.setText("Name: " + aProduct.getName() +
+                                      "\n\nDescription: " + aProduct.getDescription() +
+                                      "\n\nCalories: " + aProduct.getCalories() +
+                                      "\n\nSalt: " + aProduct.getSalt() +
+                                      "\n\nFat: " + aProduct.getFat() +
+                                      "\n\nSaturated Fat: " + aProduct.getSaturatedFat() +
+                                      "\n\nSugar: " + aProduct.getSugar() +
+                                      "\n\nUse by Date: " + aProduct.getDescription()
+                );
+                productsInKitchenStock.add(aProduct);
+                String stock = "\nKitchen Stock: ";
+                ArrayList<Product> alreadyCountedProducts = new ArrayList<Product>();
+                for (int i = 0; i < productsInKitchenStock.size(); i++)
+                {
+
+                    Boolean dupeFound = false;
+                    Product a = productsInKitchenStock.get(i);
+
+                    for (Product aproduct: alreadyCountedProducts)
+                    {
+                        if(aproduct.getName().matches(a.getName()))
+                        {
+                            dupeFound = true;
+                            break;
+                        }
+                    }
+
+                    if(!dupeFound)
+                    {
+                        int productCount = 1;
+                        alreadyCountedProducts.add(a);
+                        for (int j = i + 1; j < productsInKitchenStock.size(); j++)
+                        {
+                            Product b = productsInKitchenStock.get(j);
+                            if (b.getName().matches(a.getName()))
+                            {
+                                productCount++;
+                            }
+                        }
+                        stock += productCount + "X " + a.getName() + ", ";
+                    }
+                }
+                kitchenStockText.setText(stock);
+                break;
+            }
+        }
+
+    }
+
+    private void loadProducts()
+    {
+        SimpleDateFormat aformat = new SimpleDateFormat("dd/MM/yyyy");
+        int numberOfProducts = savedData.getInt("numberOfProducts", 0);
+
+        for (int i = 1; i <= numberOfProducts; i++)
+        {
+            Product aProduct = new Product();
+            aProduct.setBarcode(savedData.getString("Product" + i + "_Barcode", ""));
+            aProduct.setName(savedData.getString("Product" + i + "_Name", ""));
+            aProduct.setDescription(savedData.getString("Product" + i + "_Description", ""));
+            aProduct.setCalories(savedData.getFloat("Product" + i + "_Calories", 0.0f));
+            aProduct.setSalt(savedData.getFloat("Product" + i + "_Salt", 0.0f));
+            aProduct.setFat(savedData.getFloat("Product" + i + "_Fat", 0.0f));
+            aProduct.setSaturatedFat(savedData.getFloat("Product" + i + "_SaturatedFat", 0.0f));
+            aProduct.setSugar(savedData.getFloat("Product" + i + "_Sugar", 0.0f));
+            try
+            {
+                aProduct.setUseByDate(aformat.parse(savedData.getString("Product" + i + "_UseByDate", "01/01/2000")));
+            } catch (ParseException e)
+            {
+                Log.e("Product", " Error parsing date: " + savedData.getString("Product" + i + "_UseByDate", "01/01/2000") + " of: " + aProduct.toString());
+                e.printStackTrace();
+            }
+            allProducts.add(aProduct);
+            Log.i("Product", "Product Loaded: " + aProduct.toString());
+        }
+
+    }
+
+    /*private void displayOrderDetails(String orderIDin)
     {
         Calendar aCalender = Calendar.getInstance();
         String details;
@@ -385,8 +428,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         orderInfoText.setText(details);
 
         //recognizer.startListening(recogIntent);
-    }
-
+    }*/
 
     @Override
     protected void onPause()
@@ -398,37 +440,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         waitForRestOfBarcodeTimer.purge();
     }
 
-    private void loadProducts()
-    {
-        SimpleDateFormat aformat = new SimpleDateFormat("dd/MM/yyyy");
-        int numberOfProducts = savedData.getInt("numberOfProducts", 0);
-
-        for (int i = 1; i <= numberOfProducts; i++)
-        {
-            Product aProduct = new Product();
-            aProduct.setBarcode(savedData.getString("Product" + i + "_Barcode", ""));
-            aProduct.setName(savedData.getString("Product" + i + "_Name", ""));
-            aProduct.setDescription(savedData.getString("Product" + i + "_Description", ""));
-            aProduct.setCalories(savedData.getFloat("Product" + i + "_Calories", 0.0f));
-            aProduct.setSalt(savedData.getFloat("Product" + i + "_Salt", 0.0f));
-            aProduct.setFat(savedData.getFloat("Product" + i + "_Fat", 0.0f));
-            aProduct.setSaturatedFat(savedData.getFloat("Product" + i + "_SaturatedFat", 0.0f));
-            aProduct.setSugar(savedData.getFloat("Product" + i + "_Sugar", 0.0f));
-            try
-            {
-                aProduct.setUseByDate(aformat.parse(savedData.getString("Product" + i + "_UseByDate", "01/01/2000")));
-            } catch (ParseException e)
-            {
-                Log.e("Product", " Error parsing date: " + savedData.getString("Product" + i + "_UseByDate", "01/01/2000") + " of: " + aProduct.toString());
-                e.printStackTrace();
-            }
-            allProducts.add(aProduct);
-            Log.i("Product", "Product Loaded: " + aProduct.toString());
-        }
-
-    }
-
-    private void submitClaim()
+    /*private void submitClaim()
     {
         Calendar aCalender = Calendar.getInstance();
         DateFormat simpleFormat = new SimpleDateFormat("dd:MM:yyyy hh:mm");
@@ -456,8 +468,8 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                 "\n\n Reported Quality: " + claimedQualities.get(claimedQualities.size() - 1) +
                 "\n\n Reported Quantity: " + claimedQuantities.get(claimedQuantities.size() - 1);
 
-        orderInfoText.setText(details);*/
-    }
+        orderInfoText.setText(details);*
+    }*/
 
     private void loadSavedClaims()
     {
@@ -502,17 +514,10 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         edit.commit();
     }
 
-    private void addNutrientsToMeal(Product meal, int servings, Product ingredient, int ingredientWeightInKilos)
-    {
-        meal.setCalories(meal.getCalories() + ((ingredient.getCalories() * ingredientWeightInKilos) / servings));
-        meal.setSalt(meal.getSalt() + ((ingredient.getSalt() * ingredientWeightInKilos) / servings));
-        meal.setFat(meal.getFat() + ((ingredient.getFat() * ingredientWeightInKilos) / servings));
-        meal.setSaturatedFat(meal.getSaturatedFat() + ((ingredient.getSaturatedFat() * ingredientWeightInKilos) / servings));
-        meal.setSugar(meal.getSugar() + ((ingredient.getSugar() * ingredientWeightInKilos) / servings));
-    }
 
 
-//++++++++[Recognition Listener Code]
+
+    //++++++++[Recognition Listener Code]
     @Override
     public void onReadyForSpeech(Bundle bundle)
     {
@@ -585,22 +590,22 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                             tempclaimedQuality = ("Bad");
                             toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
                             Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
-                        break;
+                            break;
                         case "subpar":
                             tempclaimedQuality = ("Sub-par");
                             toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
                             Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
-                        break;
+                            break;
                         case "ok":
                             tempclaimedQuality = ("Ok");
                             toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
                             Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
-                        break;
+                            break;
                         case "good":
                             tempclaimedQuality = ("Good");
                             toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
                             Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
-                        break;
+                            break;
                         default:
                             if (tempclaimedQuality != null)
                             {
@@ -611,9 +616,9 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                                 toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityAsk");
                                 Log.i("Recog", "Unrecognised Quality, please repeat.");
                             }
-                        break;
+                            break;
                     }
-                break;
+                    break;
 
                 case pingingRecogFor_Quantity:
                     try
@@ -628,7 +633,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                         claimedQuantities.add(tempclaimedQuantity);
                         claimedUsers.add(tempclaimedUser);
 
-                        String details = currentOrderDetails + "\n\n Claimed by: " + userNameEditText.getText().toString() +
+                        String details = currentOrderDetails + "\n\n Claimed by: " + /*userNameEditText.getText().toString() +*/
                                 "\n\n Reported Quality: " + claimedQualities.get(claimedQualities.size() - 1) +
                                 "\n\n Reported Quantity: " + claimedQuantities.get(claimedQuantities.size() - 1);
 
@@ -646,7 +651,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                         toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
                         Log.i("Recog", "Response matches no known number, please repeat.");
                     }
-                break;
+                    break;
 
 
                 case pingingRecogFor_EditQuality:
@@ -685,7 +690,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                             }
                             break;
                     }
-                break;
+                    break;
 
                 case pingingRecogFor_EditQuantity:
                     try
@@ -718,7 +723,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                         toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
                         Log.i("Recog", "Response matches no known number, please repeat.");
                     }
-                break;
+                    break;
 
                 case pingingRecogFor_doEdit:
                     if(matches.get(0).split(" ")[0].matches("yes"))
@@ -738,39 +743,6 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                             toSpeech.speak("What is the quality of the goods delivered:", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
                         }
                     }
-                break;
-
-
-                case pingingRecogFor_MealName:
-                    currentMealName = matches.get(0);
-                    toSpeech.speak("Meal Recorded as " + matches.get(0) + ". How many servings of " + matches.get(0) + " are you making?", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForMealServings);
-                break;
-
-                case pingingRecogFor_MealServings:
-                    try
-                    {
-                        currentMealServings = Integer.parseInt(matches.get(0).split(" ")[0]);
-                        toSpeech.speak("Understood, you are serving " + currentMealServings + " servings of " + currentMealName + ". ", TextToSpeech.QUEUE_FLUSH, null, "");
-                        scanningProducts = true;
-                    }
-                    catch (NumberFormatException e)
-                    {
-                        toSpeech.speak("Error, that is not a number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForMealServings);
-                    }
-                break;
-
-                case pingingRecogFor_Weight:
-                    try
-                    {
-                        int weight = Integer.parseInt(matches.get(0).split(" ")[0]);
-                        toSpeech.speak("Understood, you are adding " + weight + " kilos of " + currentProduct.getName() + ". Adjusting Serving Nutritional Stats. ", TextToSpeech.QUEUE_FLUSH, null, "");
-                        addNutrientsToMeal(currentMealValues, currentMealServings, currentProduct, weight);
-                        orderInfoText.setText("1 serving of " + currentMealName + " contains: " + "\n\nSalt: " + currentMealValues.getSalt() + "\n\nFat: " + currentMealValues.getFat() + "\n\nSaturated Fat: " + currentMealValues.getSaturatedFat() + "\n\nSugar: " + currentMealValues.getSugar());
-                    }
-                    catch (NumberFormatException e)
-                    {
-                        toSpeech.speak("Error, that is not a number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForWeight);
-                    }
                     break;
             }
         }
@@ -787,7 +759,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     {
         Log.e("Recog", "onEvent");
     }
-//++++++++[/Recognition Listener Code]
+    //++++++++[/Recognition Listener Code]
 //++++++++[Recognition Other Code]
     private String sortThroughRecognizerResults(String[] results, String[] matchablePhrases)
     {
@@ -824,7 +796,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     }
 //++++++++[/Recognition Other Code]
 
-//++++++++[Text To Speech Code]
+    //++++++++[Text To Speech Code]
     private void setupTextToSpeech()
     {
         toSpeech = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
@@ -859,9 +831,6 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                                     case "QuantityEdit": pingingRecogFor = pingingRecogFor_EditQuantity; recognizer.startListening(recogIntent); break;
                                     case "DoEdit": pingingRecogFor = pingingRecogFor_doEdit; recognizer.startListening(recogIntent); break;
                                     case "repeat": recognizer.startListening(recogIntent); break;
-                                    case speechID_AskForWeight: pingingRecogFor = pingingRecogFor_Weight; recognizer.startListening(recogIntent); break;
-                                    case speechID_AskForMealName: pingingRecogFor = pingingRecogFor_MealName; recognizer.startListening(recogIntent); break;
-                                    case speechID_AskForMealServings: pingingRecogFor = pingingRecogFor_MealServings; recognizer.startListening(recogIntent); break;
                                 }
                             }
                         });
