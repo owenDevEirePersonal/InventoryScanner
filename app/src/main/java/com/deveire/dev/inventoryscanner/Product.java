@@ -16,6 +16,7 @@ public class Product
     private float fat; //in grams per kilo
     private float saturatedFat; //in grams per kilo
     private float sugar; //in grams per kilo
+    private boolean conditionIsOkay;
     private Date useByDate;
 
     public Product(String inBarcode, String inName, String inDescription, float inCalories, float inSalt, float inFat, float inSaturatedFat, float inSugar, Date inUseByDate)
@@ -29,16 +30,32 @@ public class Product
         this.saturatedFat = inSaturatedFat;
         this.sugar = inSugar;
         this.useByDate = inUseByDate;
+        this.conditionIsOkay = true;
+    }
+
+    public Product(String inBarcode, String inName, String inDescription, float inCalories, float inSalt, float inFat, float inSaturatedFat, float inSugar, boolean isOkay, Date inUseByDate)
+    {
+        this.barcode = inBarcode;
+        this.name = inName;
+        this.description = inDescription;
+        this.calories = inCalories;
+        this.salt = inSalt;
+        this.fat = inFat;
+        this.saturatedFat = inSaturatedFat;
+        this.sugar = inSugar;
+        this.useByDate = inUseByDate;
+        this.conditionIsOkay = isOkay;
     }
 
     public Product()
     {
-
+        //for use as placeholder, not for actual use.
     }
 
     public String toString()
     {
-        return "Name: " + this.name + " Barcode:" + this.barcode + " Description: " + this.description + " Calories: " + this.calories + " Salt: " + this.salt + " Fat: " + this.fat + " SaturatedFat: " + this.saturatedFat + " Sugar: " + this.sugar + " Use By Date: " + this.useByDate;
+        return "Name: " + this.name + " condition: " + this.conditionIsOkay;
+        //return "Name: " + this.name + " Barcode:" + this.barcode + " Description: " + this.description + " Calories: " + this.calories + " Salt: " + this.salt + " Fat: " + this.fat + " SaturatedFat: " + this.saturatedFat + " Sugar: " + this.sugar + " Use By Date: " + this.useByDate;
     }
 
     public String getBarcode()
@@ -129,5 +146,15 @@ public class Product
     public void setUseByDate(Date inDate)
     {
         this.useByDate = inDate;
+    }
+
+    public boolean isConditionIsOkay()
+    {
+        return this.conditionIsOkay;
+    }
+
+    public void setConditionIsOkay(boolean inConditionIsOkay)
+    {
+        this.conditionIsOkay = inConditionIsOkay;
     }
 }

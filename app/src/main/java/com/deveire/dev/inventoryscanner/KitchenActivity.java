@@ -32,7 +32,7 @@ import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MainActivity extends AppCompatActivity implements RecognitionListener
+public class KitchenActivity extends AppCompatActivity implements RecognitionListener
 {
     private TextView orderInfoText;
     private EditText orderIDEditText;
@@ -104,6 +104,8 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private TextToSpeech toSpeech;
     private String speechInText;
     private HashMap<String, String> endOfSpeakIndentifier;
+
+    private boolean isShuttingDownSpeech;
 
     private static final String speechID_AskForWeight = "AskingForWeight";
     private static final String speechID_AskForMealName = "AskingForMealName";
@@ -396,6 +398,12 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
         waitForRestOfBarcodeTimer.cancel();
         waitForRestOfBarcodeTimer.purge();
+
+        isShuttingDownSpeech = true;
+
+        toSpeech.stop();
+        recognizer.stopListening();
+        recognizer.cancel();
     }
 
     private void loadProducts()
@@ -569,209 +577,208 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     @Override
     public void onResults(Bundle bundle)
     {
-        ArrayList<String> matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        Log.i("Recog", "Results recieved: " + matches);
-
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+        if(!isShuttingDownSpeech)
         {
-            switch (pingingRecogFor)
+            ArrayList<String> matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+            Log.i("Recog", "Results recieved: " + matches);
+
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
             {
-                case pingingRecogFor_Quality:
+                switch (pingingRecogFor)
+                {
+                    case pingingRecogFor_Quality:
 
-                    switch (matches.get(0).split(" ")[0])
-                    {
-                        case "bad":
-                            tempclaimedQuality = ("Bad");
-                            toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
-                        break;
-                        case "subpar":
-                            tempclaimedQuality = ("Sub-par");
-                            toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
-                        break;
-                        case "ok":
-                            tempclaimedQuality = ("Ok");
-                            toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
-                        break;
-                        case "good":
-                            tempclaimedQuality = ("Good");
-                            toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
-                        break;
-                        default:
-                            if (tempclaimedQuality != null)
-                            {
-
-                            }
-                            else
-                            {
-                                toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityAsk");
-                                Log.i("Recog", "Unrecognised Quality, please repeat.");
-                            }
-                        break;
-                    }
-                break;
-
-                case pingingRecogFor_Quantity:
-                    try
-                    {
-                        int quantity = Integer.parseInt(matches.get(0));
-                        tempclaimedQuantity = quantity;
-                        toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
-                        Log.i("Recog", "Quantity Recorded as: " + quantity);
-                        claimedIDs.add(tempclaimedID);
-                        claimedDates.add(tempclaimedDate);
-                        claimedQualities.add(tempclaimedQuality);
-                        claimedQuantities.add(tempclaimedQuantity);
-                        claimedUsers.add(tempclaimedUser);
-
-                        String details = currentOrderDetails + "\n\n Claimed by: " + userNameEditText.getText().toString() +
-                                "\n\n Reported Quality: " + claimedQualities.get(claimedQualities.size() - 1) +
-                                "\n\n Reported Quantity: " + claimedQuantities.get(claimedQuantities.size() - 1);
-
-                        orderInfoText.setText(details);
-
-                        tempclaimedQuality = null;
-                        tempclaimedUser = null;
-                        tempclaimedQuantity = null;
-                        tempclaimedDate = null;
-                        tempclaimedID = null;
-                    }
-                    catch (Exception e)
-                    {
-                        Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
-                        toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                        Log.i("Recog", "Response matches no known number, please repeat.");
-                    }
-                break;
-
-
-                case pingingRecogFor_EditQuality:
-
-                    switch (matches.get(0).split(" ")[0])
-                    {
-                        case "bad":
-                            tempclaimedQuality = ("Bad");
-                            toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
-                            Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
-                            break;
-                        case "subpar":
-                            tempclaimedQuality = ("Sub-par");
-                            toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
-                            Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
-                            break;
-                        case "ok":
-                            tempclaimedQuality = ("Ok");
-                            toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
-                            Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
-                            break;
-                        case "good":
-                            tempclaimedQuality = ("Good");
-                            toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
-                            Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
-                            break;
-                        default:
-                            if (tempclaimedQuality != null)
-                            {
-
-                            }
-                            else
-                            {
-                                toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
-                                Log.i("Recog", "Unrecognised Quality, please repeat.");
-                            }
-                            break;
-                    }
-                break;
-
-                case pingingRecogFor_EditQuantity:
-                    try
-                    {
-                        int quantity = Integer.parseInt(matches.get(0));
-                        tempclaimedQuantity = quantity;
-                        toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
-                        Log.i("Recog", "Quantity Recorded as: " + quantity);
-                        //claimedIDs.set(claimToEditIndex, tempclaimedID);
-                        //claimedDates.set(claimToEditIndex,tempclaimedDate);
-                        claimedQualities.set(claimToEditIndex, tempclaimedQuality);
-                        claimedQuantities.set(claimToEditIndex, tempclaimedQuantity);
-                        //claimedUsers.set(claimToEditIndex, tempclaimedUser);
-
-                        String details = "Edit Complete: Order " + claimedIDs.get(claimToEditIndex) + " claimed by " + claimedUsers.get(claimToEditIndex) + " at " + claimedDates.get(claimToEditIndex) + "\n\n"  +
-                                "\n\n Reported Quality: " + claimedQualities.get(claimToEditIndex) +
-                                "\n\n Reported Quantity: " + claimedQuantities.get(claimToEditIndex);
-
-                        orderInfoText.setText(details);
-
-                        tempclaimedQuality = null;
-                        tempclaimedUser = null;
-                        tempclaimedQuantity = null;
-                        tempclaimedDate = null;
-                        tempclaimedID = null;
-                    }
-                    catch (Exception e)
-                    {
-                        Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
-                        toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                        Log.i("Recog", "Response matches no known number, please repeat.");
-                    }
-                break;
-
-                case pingingRecogFor_doEdit:
-                    if(matches.get(0).split(" ")[0].matches("yes"))
-                    {
-                        int anIndex = 0;
-                        for (String anID:claimedIDs)
+                        switch (matches.get(0).split(" ")[0])
                         {
-                            if(anID.matches(currentOrderID))
-                            {
-                                claimToEditIndex = anIndex;
+                            case "bad":
+                                tempclaimedQuality = ("Bad");
+                                toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                                Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
                                 break;
-                            }
-                            anIndex++;
+                            case "subpar":
+                                tempclaimedQuality = ("Sub-par");
+                                toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                                Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
+                                break;
+                            case "ok":
+                                tempclaimedQuality = ("Ok");
+                                toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                                Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
+                                break;
+                            case "good":
+                                tempclaimedQuality = ("Good");
+                                toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                                Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
+                                break;
+                            default:
+                                if (tempclaimedQuality != null)
+                                {
+
+                                }
+                                else
+                                {
+                                    toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityAsk");
+                                    Log.i("Recog", "Unrecognised Quality, please repeat.");
+                                }
+                                break;
                         }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+                        break;
+
+                    case pingingRecogFor_Quantity:
+                        try
                         {
-                            toSpeech.speak("What is the quality of the goods delivered:", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
+                            int quantity = Integer.parseInt(matches.get(0));
+                            tempclaimedQuantity = quantity;
+                            toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
+                            Log.i("Recog", "Quantity Recorded as: " + quantity);
+                            claimedIDs.add(tempclaimedID);
+                            claimedDates.add(tempclaimedDate);
+                            claimedQualities.add(tempclaimedQuality);
+                            claimedQuantities.add(tempclaimedQuantity);
+                            claimedUsers.add(tempclaimedUser);
+
+                            String details = currentOrderDetails + "\n\n Claimed by: " + userNameEditText.getText().toString() +
+                                    "\n\n Reported Quality: " + claimedQualities.get(claimedQualities.size() - 1) +
+                                    "\n\n Reported Quantity: " + claimedQuantities.get(claimedQuantities.size() - 1);
+
+                            orderInfoText.setText(details);
+
+                            tempclaimedQuality = null;
+                            tempclaimedUser = null;
+                            tempclaimedQuantity = null;
+                            tempclaimedDate = null;
+                            tempclaimedID = null;
+                        } catch (Exception e)
+                        {
+                            Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
+                            toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                            Log.i("Recog", "Response matches no known number, please repeat.");
                         }
-                    }
-                break;
+                        break;
 
 
-                case pingingRecogFor_MealName:
-                    currentMealName = matches.get(0);
-                    toSpeech.speak("Meal Recorded as " + matches.get(0) + ". How many servings of " + matches.get(0) + " are you making?", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForMealServings);
-                break;
+                    case pingingRecogFor_EditQuality:
 
-                case pingingRecogFor_MealServings:
-                    try
-                    {
-                        currentMealServings = Integer.parseInt(matches.get(0).split(" ")[0]);
-                        toSpeech.speak("Understood, you are serving " + currentMealServings + " servings of " + currentMealName + ". ", TextToSpeech.QUEUE_FLUSH, null, "");
-                        scanningProducts = true;
-                    }
-                    catch (NumberFormatException e)
-                    {
-                        toSpeech.speak("Error, that is not a number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForMealServings);
-                    }
-                break;
+                        switch (matches.get(0).split(" ")[0])
+                        {
+                            case "bad":
+                                tempclaimedQuality = ("Bad");
+                                toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                                Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
+                                break;
+                            case "subpar":
+                                tempclaimedQuality = ("Sub-par");
+                                toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                                Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
+                                break;
+                            case "ok":
+                                tempclaimedQuality = ("Ok");
+                                toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                                Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
+                                break;
+                            case "good":
+                                tempclaimedQuality = ("Good");
+                                toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                                Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
+                                break;
+                            default:
+                                if (tempclaimedQuality != null)
+                                {
 
-                case pingingRecogFor_Weight:
-                    try
-                    {
-                        int weight = Integer.parseInt(matches.get(0).split(" ")[0]);
-                        toSpeech.speak("Understood, you are adding " + weight + " kilos of " + currentProduct.getName() + ". Adjusting Serving Nutritional Stats. ", TextToSpeech.QUEUE_FLUSH, null, "");
-                        addNutrientsToMeal(currentMealValues, currentMealServings, currentProduct, weight);
-                        orderInfoText.setText("1 serving of " + currentMealName + " contains: " + "\n\nSalt: " + currentMealValues.getSalt() + "\n\nFat: " + currentMealValues.getFat() + "\n\nSaturated Fat: " + currentMealValues.getSaturatedFat() + "\n\nSugar: " + currentMealValues.getSugar());
-                    }
-                    catch (NumberFormatException e)
-                    {
-                        toSpeech.speak("Error, that is not a number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForWeight);
-                    }
-                    break;
+                                }
+                                else
+                                {
+                                    toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
+                                    Log.i("Recog", "Unrecognised Quality, please repeat.");
+                                }
+                                break;
+                        }
+                        break;
+
+                    case pingingRecogFor_EditQuantity:
+                        try
+                        {
+                            int quantity = Integer.parseInt(matches.get(0));
+                            tempclaimedQuantity = quantity;
+                            toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
+                            Log.i("Recog", "Quantity Recorded as: " + quantity);
+                            //claimedIDs.set(claimToEditIndex, tempclaimedID);
+                            //claimedDates.set(claimToEditIndex,tempclaimedDate);
+                            claimedQualities.set(claimToEditIndex, tempclaimedQuality);
+                            claimedQuantities.set(claimToEditIndex, tempclaimedQuantity);
+                            //claimedUsers.set(claimToEditIndex, tempclaimedUser);
+
+                            String details = "Edit Complete: Order " + claimedIDs.get(claimToEditIndex) + " claimed by " + claimedUsers.get(claimToEditIndex) + " at " + claimedDates.get(claimToEditIndex) + "\n\n" +
+                                    "\n\n Reported Quality: " + claimedQualities.get(claimToEditIndex) +
+                                    "\n\n Reported Quantity: " + claimedQuantities.get(claimToEditIndex);
+
+                            orderInfoText.setText(details);
+
+                            tempclaimedQuality = null;
+                            tempclaimedUser = null;
+                            tempclaimedQuantity = null;
+                            tempclaimedDate = null;
+                            tempclaimedID = null;
+                        } catch (Exception e)
+                        {
+                            Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
+                            toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                            Log.i("Recog", "Response matches no known number, please repeat.");
+                        }
+                        break;
+
+                    case pingingRecogFor_doEdit:
+                        if (matches.get(0).split(" ")[0].matches("yes"))
+                        {
+                            int anIndex = 0;
+                            for (String anID : claimedIDs)
+                            {
+                                if (anID.matches(currentOrderID))
+                                {
+                                    claimToEditIndex = anIndex;
+                                    break;
+                                }
+                                anIndex++;
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+                            {
+                                toSpeech.speak("What is the quality of the goods delivered:", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
+                            }
+                        }
+                        break;
+
+
+                    case pingingRecogFor_MealName:
+                        currentMealName = matches.get(0);
+                        toSpeech.speak("Meal Recorded as " + matches.get(0) + ". How many servings of " + matches.get(0) + " are you making?", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForMealServings);
+                        break;
+
+                    case pingingRecogFor_MealServings:
+                        try
+                        {
+                            currentMealServings = Integer.parseInt(matches.get(0).split(" ")[0]);
+                            toSpeech.speak("Understood, you are serving " + currentMealServings + " servings of " + currentMealName + ". ", TextToSpeech.QUEUE_FLUSH, null, "");
+                            scanningProducts = true;
+                        } catch (NumberFormatException e)
+                        {
+                            toSpeech.speak("Error, that is not a number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForMealServings);
+                        }
+                        break;
+
+                    case pingingRecogFor_Weight:
+                        try
+                        {
+                            int weight = Integer.parseInt(matches.get(0).split(" ")[0]);
+                            toSpeech.speak("Understood, you are adding " + weight + " kilos of " + currentProduct.getName() + ". Adjusting Serving Nutritional Stats. ", TextToSpeech.QUEUE_FLUSH, null, "");
+                            addNutrientsToMeal(currentMealValues, currentMealServings, currentProduct, weight);
+                            orderInfoText.setText("1 serving of " + currentMealName + " contains: " + "\n\nSalt: " + currentMealValues.getSalt() + "\n\nFat: " + currentMealValues.getFat() + "\n\nSaturated Fat: " + currentMealValues.getSaturatedFat() + "\n\nSugar: " + currentMealValues.getSugar());
+                        } catch (NumberFormatException e)
+                        {
+                            toSpeech.speak("Error, that is not a number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, speechID_AskForWeight);
+                        }
+                        break;
+                }
             }
         }
     }
@@ -827,6 +834,8 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 //++++++++[Text To Speech Code]
     private void setupTextToSpeech()
     {
+        isShuttingDownSpeech = false;
+
         toSpeech = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status)
@@ -846,25 +855,54 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                     @Override
                     public void onDone(final String utteranceId)
                     {
-                        runOnUiThread(new Runnable()
+                        if(!isShuttingDownSpeech)
                         {
-                            @Override
-                            public void run()
+                            runOnUiThread(new Runnable()
                             {
-                                switch (utteranceId)
+                                @Override
+                                public void run()
                                 {
-                                    case "QualityAsk": pingingRecogFor = pingingRecogFor_Quality; recognizer.startListening(recogIntent); break;
-                                    case "QuantityAsk": pingingRecogFor = pingingRecogFor_Quantity; recognizer.startListening(recogIntent); break;
-                                    case "QualityEdit": pingingRecogFor = pingingRecogFor_EditQuality; recognizer.startListening(recogIntent); break;
-                                    case "QuantityEdit": pingingRecogFor = pingingRecogFor_EditQuantity; recognizer.startListening(recogIntent); break;
-                                    case "DoEdit": pingingRecogFor = pingingRecogFor_doEdit; recognizer.startListening(recogIntent); break;
-                                    case "repeat": recognizer.startListening(recogIntent); break;
-                                    case speechID_AskForWeight: pingingRecogFor = pingingRecogFor_Weight; recognizer.startListening(recogIntent); break;
-                                    case speechID_AskForMealName: pingingRecogFor = pingingRecogFor_MealName; recognizer.startListening(recogIntent); break;
-                                    case speechID_AskForMealServings: pingingRecogFor = pingingRecogFor_MealServings; recognizer.startListening(recogIntent); break;
+                                    switch (utteranceId)
+                                    {
+                                        case "QualityAsk":
+                                            pingingRecogFor = pingingRecogFor_Quality;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "QuantityAsk":
+                                            pingingRecogFor = pingingRecogFor_Quantity;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "QualityEdit":
+                                            pingingRecogFor = pingingRecogFor_EditQuality;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "QuantityEdit":
+                                            pingingRecogFor = pingingRecogFor_EditQuantity;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "DoEdit":
+                                            pingingRecogFor = pingingRecogFor_doEdit;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "repeat":
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case speechID_AskForWeight:
+                                            pingingRecogFor = pingingRecogFor_Weight;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case speechID_AskForMealName:
+                                            pingingRecogFor = pingingRecogFor_MealName;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case speechID_AskForMealServings:
+                                            pingingRecogFor = pingingRecogFor_MealServings;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
 
                         /*if(utteranceId.matches("QualityAsk") || utteranceId.matches("QuantityAsk"))
                         {

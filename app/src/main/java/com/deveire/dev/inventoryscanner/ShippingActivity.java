@@ -53,6 +53,9 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
 
     private ArrayList<Product> allProducts;
     private ArrayList<Product> productsInKitchenStock;
+    private Product currentlyScannedProduct;
+    private int amountOfScannedProduct;
+    private boolean scannedProductIsOk;
 
     private ArrayList<String> claimedIDs;
     private ArrayList<String> claimedUsers;
@@ -86,6 +89,7 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
     private static final int pingingRecogFor_EditQuality = 3;
     private static final int pingingRecogFor_EditQuantity = 4;
     private static final int pingingRecogFor_doEdit = 5;
+    private static final int pingingRecogFor_Amount = 7;
     private static final int pingingRecogFor_None = 6;
 
     private int claimToEditIndex;
@@ -95,6 +99,9 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
     private TextToSpeech toSpeech;
     private String speechInText;
     private HashMap<String, String> endOfSpeakIndentifier;
+
+    private boolean isShuttingDownSpeech;
+    private static final String utteranceID_Amount = "LookingForAmount";
     //[/Text To Speech Variables]
 
 
@@ -125,6 +132,8 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
         allProducts = new ArrayList<Product>();
         productsInKitchenStock = new ArrayList<Product>();
         loadProducts();
+        amountOfScannedProduct = 0;
+        scannedProductIsOk = false;
 
         Calendar aCalender = Calendar.getInstance();
         DateFormat simpleFormat = new SimpleDateFormat("dd:MM:yyyy hh:mm");
@@ -157,7 +166,7 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2)
             {
-                if(!isWaitingForRestOfBarcode && !orderIDEditText.getText().toString().matches("") && orderIDEditText.getText().toString().length() == 10)//14)
+                if(!isWaitingForRestOfBarcode && !orderIDEditText.getText().toString().matches("") && orderIDEditText.getText().toString().length() == 1)//14)
                 {
                     isWaitingForRestOfBarcode = true;
 
@@ -303,7 +312,8 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
                                       "\n\nSugar: " + aProduct.getSugar() +
                                       "\n\nUse by Date: " + aProduct.getDescription()
                 );
-                productsInKitchenStock.add(aProduct);
+                currentlyScannedProduct = aProduct;
+                /*productsInKitchenStock.add(aProduct);
                 String stock = "\nKitchen Stock: ";
                 ArrayList<Product> alreadyCountedProducts = new ArrayList<Product>();
                 for (int i = 0; i < productsInKitchenStock.size(); i++)
@@ -336,7 +346,10 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
                         stock += productCount + "X " + a.getName() + ", ";
                     }
                 }
-                kitchenStockText.setText(stock);
+                kitchenStockText.setText(stock);*/
+
+                toSpeech.speak(" ", TextToSpeech.QUEUE_FLUSH, null, utteranceID_Amount);
+
                 break;
             }
         }
@@ -435,9 +448,14 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
     {
         super.onPause();
         saveClaims();
+        isShuttingDownSpeech = true;
 
         waitForRestOfBarcodeTimer.cancel();
         waitForRestOfBarcodeTimer.purge();
+
+        toSpeech.stop();
+        recognizer.stopListening();
+        recognizer.cancel();
     }
 
     /*private void submitClaim()
@@ -574,176 +592,331 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
     @Override
     public void onResults(Bundle bundle)
     {
-        ArrayList<String> matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        Log.i("Recog", "Results recieved: " + matches);
-
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+        if(!isShuttingDownSpeech)
         {
-            switch (pingingRecogFor)
+
+            ArrayList<String> matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+            Log.i("Recog", "Results recieved: " + matches);
+
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
             {
-                case pingingRecogFor_Quality:
+                switch (pingingRecogFor)
+                {
+                    case pingingRecogFor_Quality:
 
-                    switch (matches.get(0).split(" ")[0])
-                    {
-                        case "bad":
-                            tempclaimedQuality = ("Bad");
-                            toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
-                            break;
-                        case "subpar":
-                            tempclaimedQuality = ("Sub-par");
-                            toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
-                            break;
-                        case "ok":
-                            tempclaimedQuality = ("Ok");
-                            toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
-                            break;
-                        case "good":
-                            tempclaimedQuality = ("Good");
-                            toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                            Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
-                            break;
-                        default:
-                            if (tempclaimedQuality != null)
-                            {
-
-                            }
-                            else
-                            {
-                                toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityAsk");
-                                Log.i("Recog", "Unrecognised Quality, please repeat.");
-                            }
-                            break;
-                    }
-                    break;
-
-                case pingingRecogFor_Quantity:
-                    try
-                    {
-                        int quantity = Integer.parseInt(matches.get(0));
-                        tempclaimedQuantity = quantity;
-                        toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
-                        Log.i("Recog", "Quantity Recorded as: " + quantity);
-                        claimedIDs.add(tempclaimedID);
-                        claimedDates.add(tempclaimedDate);
-                        claimedQualities.add(tempclaimedQuality);
-                        claimedQuantities.add(tempclaimedQuantity);
-                        claimedUsers.add(tempclaimedUser);
-
-                        String details = currentOrderDetails + "\n\n Claimed by: " + /*userNameEditText.getText().toString() +*/
-                                "\n\n Reported Quality: " + claimedQualities.get(claimedQualities.size() - 1) +
-                                "\n\n Reported Quantity: " + claimedQuantities.get(claimedQuantities.size() - 1);
-
-                        orderInfoText.setText(details);
-
-                        tempclaimedQuality = null;
-                        tempclaimedUser = null;
-                        tempclaimedQuantity = null;
-                        tempclaimedDate = null;
-                        tempclaimedID = null;
-                    }
-                    catch (Exception e)
-                    {
-                        Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
-                        toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                        Log.i("Recog", "Response matches no known number, please repeat.");
-                    }
-                    break;
-
-
-                case pingingRecogFor_EditQuality:
-
-                    switch (matches.get(0).split(" ")[0])
-                    {
-                        case "bad":
-                            tempclaimedQuality = ("Bad");
-                            toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
-                            Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
-                            break;
-                        case "subpar":
-                            tempclaimedQuality = ("Sub-par");
-                            toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
-                            Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
-                            break;
-                        case "ok":
-                            tempclaimedQuality = ("Ok");
-                            toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
-                            Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
-                            break;
-                        case "good":
-                            tempclaimedQuality = ("Good");
-                            toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
-                            Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
-                            break;
-                        default:
-                            if (tempclaimedQuality != null)
-                            {
-
-                            }
-                            else
-                            {
-                                toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
-                                Log.i("Recog", "Unrecognised Quality, please repeat.");
-                            }
-                            break;
-                    }
-                    break;
-
-                case pingingRecogFor_EditQuantity:
-                    try
-                    {
-                        int quantity = Integer.parseInt(matches.get(0));
-                        tempclaimedQuantity = quantity;
-                        toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
-                        Log.i("Recog", "Quantity Recorded as: " + quantity);
-                        //claimedIDs.set(claimToEditIndex, tempclaimedID);
-                        //claimedDates.set(claimToEditIndex,tempclaimedDate);
-                        claimedQualities.set(claimToEditIndex, tempclaimedQuality);
-                        claimedQuantities.set(claimToEditIndex, tempclaimedQuantity);
-                        //claimedUsers.set(claimToEditIndex, tempclaimedUser);
-
-                        String details = "Edit Complete: Order " + claimedIDs.get(claimToEditIndex) + " claimed by " + claimedUsers.get(claimToEditIndex) + " at " + claimedDates.get(claimToEditIndex) + "\n\n"  +
-                                "\n\n Reported Quality: " + claimedQualities.get(claimToEditIndex) +
-                                "\n\n Reported Quantity: " + claimedQuantities.get(claimToEditIndex);
-
-                        orderInfoText.setText(details);
-
-                        tempclaimedQuality = null;
-                        tempclaimedUser = null;
-                        tempclaimedQuantity = null;
-                        tempclaimedDate = null;
-                        tempclaimedID = null;
-                    }
-                    catch (Exception e)
-                    {
-                        Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
-                        toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
-                        Log.i("Recog", "Response matches no known number, please repeat.");
-                    }
-                    break;
-
-                case pingingRecogFor_doEdit:
-                    if(matches.get(0).split(" ")[0].matches("yes"))
-                    {
-                        int anIndex = 0;
-                        for (String anID:claimedIDs)
+                        switch (matches.get(0).split(" ")[0])
                         {
-                            if(anID.matches(currentOrderID))
-                            {
-                                claimToEditIndex = anIndex;
+                            case "bad":
+                                tempclaimedQuality = ("Bad");
+                                toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                                Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
                                 break;
-                            }
-                            anIndex++;
+                            case "subpar":
+                                tempclaimedQuality = ("Sub-par");
+                                toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                                Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
+                                break;
+                            case "ok":
+                                tempclaimedQuality = ("Ok");
+                                toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                                Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
+                                break;
+                            case "good":
+                                tempclaimedQuality = ("Good");
+                                toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                                Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
+                                break;
+                            default:
+                                if (tempclaimedQuality != null)
+                                {
+
+                                }
+                                else
+                                {
+                                    toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityAsk");
+                                    Log.i("Recog", "Unrecognised Quality, please repeat.");
+                                }
+                                break;
                         }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+                        break;
+
+                    case pingingRecogFor_Quantity:
+                        try
                         {
-                            toSpeech.speak("What is the quality of the goods delivered:", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
+                            int quantity = Integer.parseInt(matches.get(0));
+                            tempclaimedQuantity = quantity;
+                            toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
+                            Log.i("Recog", "Quantity Recorded as: " + quantity);
+                            claimedIDs.add(tempclaimedID);
+                            claimedDates.add(tempclaimedDate);
+                            claimedQualities.add(tempclaimedQuality);
+                            claimedQuantities.add(tempclaimedQuantity);
+                            claimedUsers.add(tempclaimedUser);
+
+                            String details = currentOrderDetails + "\n\n Claimed by: " + /*userNameEditText.getText().toString() +*/
+                                    "\n\n Reported Quality: " + claimedQualities.get(claimedQualities.size() - 1) +
+                                    "\n\n Reported Quantity: " + claimedQuantities.get(claimedQuantities.size() - 1);
+
+                            orderInfoText.setText(details);
+
+                            tempclaimedQuality = null;
+                            tempclaimedUser = null;
+                            tempclaimedQuantity = null;
+                            tempclaimedDate = null;
+                            tempclaimedID = null;
+                        } catch (Exception e)
+                        {
+                            Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
+                            toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                            Log.i("Recog", "Response matches no known number, please repeat.");
                         }
-                    }
-                    break;
+                        break;
+
+
+                    case pingingRecogFor_EditQuality:
+
+                        switch (matches.get(0).split(" ")[0])
+                        {
+                            case "bad":
+                                tempclaimedQuality = ("Bad");
+                                toSpeech.speak("Quality Recorded as: bad. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                                Log.i("Recog", "Quality Recorded as: bad. What was the number of goods delivered");
+                                break;
+                            case "subpar":
+                                tempclaimedQuality = ("Sub-par");
+                                toSpeech.speak("Quality Recorded as: sub par. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                                Log.i("Recog", "Quality Recorded as: sub par. What was the number of goods delivered");
+                                break;
+                            case "ok":
+                                tempclaimedQuality = ("Ok");
+                                toSpeech.speak("Quality Recorded as: okay. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                                Log.i("Recog", "Quality Recorded as: ok. What was the number of goods delivered");
+                                break;
+                            case "good":
+                                tempclaimedQuality = ("Good");
+                                toSpeech.speak("Quality Recorded as: good. What was the number of goods delivered", TextToSpeech.QUEUE_FLUSH, null, "QuantityEdit");
+                                Log.i("Recog", "Quality Recorded as: good. What was the number of goods delivered");
+                                break;
+                            default:
+                                if (tempclaimedQuality != null)
+                                {
+
+                                }
+                                else
+                                {
+                                    toSpeech.speak("Unrecognised Quality, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
+                                    Log.i("Recog", "Unrecognised Quality, please repeat.");
+                                }
+                                break;
+                        }
+                        break;
+
+                    case pingingRecogFor_EditQuantity:
+                        try
+                        {
+                            int quantity = Integer.parseInt(matches.get(0));
+                            tempclaimedQuantity = quantity;
+                            toSpeech.speak("Quantity Recorded as: " + quantity, TextToSpeech.QUEUE_FLUSH, null, "end");
+                            Log.i("Recog", "Quantity Recorded as: " + quantity);
+                            //claimedIDs.set(claimToEditIndex, tempclaimedID);
+                            //claimedDates.set(claimToEditIndex,tempclaimedDate);
+                            claimedQualities.set(claimToEditIndex, tempclaimedQuality);
+                            claimedQuantities.set(claimToEditIndex, tempclaimedQuantity);
+                            //claimedUsers.set(claimToEditIndex, tempclaimedUser);
+
+                            String details = "Edit Complete: Order " + claimedIDs.get(claimToEditIndex) + " claimed by " + claimedUsers.get(claimToEditIndex) + " at " + claimedDates.get(claimToEditIndex) + "\n\n" +
+                                    "\n\n Reported Quality: " + claimedQualities.get(claimToEditIndex) +
+                                    "\n\n Reported Quantity: " + claimedQuantities.get(claimToEditIndex);
+
+                            orderInfoText.setText(details);
+
+                            tempclaimedQuality = null;
+                            tempclaimedUser = null;
+                            tempclaimedQuantity = null;
+                            tempclaimedDate = null;
+                            tempclaimedID = null;
+                        } catch (Exception e)
+                        {
+                            Log.e("Recog", "ERROR Exception Parsing quantity: " + e.toString());
+                            toSpeech.speak("Response matches no known number, please repeat.", TextToSpeech.QUEUE_FLUSH, null, "QuantityAsk");
+                            Log.i("Recog", "Response matches no known number, please repeat.");
+                        }
+                        break;
+
+                    case pingingRecogFor_doEdit:
+                        if (matches.get(0).split(" ")[0].matches("yes"))
+                        {
+                            int anIndex = 0;
+                            for (String anID : claimedIDs)
+                            {
+                                if (anID.matches(currentOrderID))
+                                {
+                                    claimToEditIndex = anIndex;
+                                    break;
+                                }
+                                anIndex++;
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+                            {
+                                toSpeech.speak("What is the quality of the goods delivered:", TextToSpeech.QUEUE_FLUSH, null, "QualityEdit");
+                            }
+                        }
+                        break;
+
+                    case pingingRecogFor_Amount:
+                        String stock = "\nKitchen Stock: \n ";
+                        ArrayList<Product> alreadyCountedProducts = new ArrayList<Product>();
+                        Log.i("Products", "All products in stock: " + productsInKitchenStock.toString());
+                        Log.i("Products", "Currently scanned product: " + currentlyScannedProduct.toString());
+
+
+                        switch (sortThroughRecognizerResultsForQualityAndAmount(matches, new String[]{"not ok", "ok"}))
+                        {
+                            case "ok":
+                                Log.i("Products", "All products in stock before: " + productsInKitchenStock.toString());
+                                Log.i("Products", "Currently scanned product before: " + currentlyScannedProduct.toString());
+                                currentlyScannedProduct.setConditionIsOkay(true);
+                                Log.i("Products", "All products in stock, after true: " + productsInKitchenStock.toString());
+                                for (int i = 0; i < amountOfScannedProduct; i++)
+                                {
+                                    //must copy over as new Product otherwise you just pass amountOfScannedProduct by reference, somehow?
+                                    productsInKitchenStock.add(new Product(currentlyScannedProduct.getBarcode(), currentlyScannedProduct.getName(), currentlyScannedProduct.getDescription(), currentlyScannedProduct.getCalories(), currentlyScannedProduct.getSalt(), currentlyScannedProduct.getFat(), currentlyScannedProduct.getSaturatedFat(), currentlyScannedProduct.getSugar(), true, currentlyScannedProduct.getUseByDate()));
+                                }
+
+                                for (Product aProductInStock : productsInKitchenStock)
+                                {
+                                    boolean hasAlreadyBeenCounted = false;
+
+                                    for (Product aCountedProduct : alreadyCountedProducts)
+                                    {
+                                        if (aCountedProduct.getName().matches(aProductInStock.getName()))
+                                        {
+                                            if (aCountedProduct.isConditionIsOkay() == aProductInStock.isConditionIsOkay())
+                                            {
+                                                hasAlreadyBeenCounted = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (!hasAlreadyBeenCounted)
+                                    {
+                                        int count = 0;
+                                        if (aProductInStock.isConditionIsOkay())
+                                        {
+                                            for (Product bProductInStock : productsInKitchenStock)
+                                            {
+                                                if (aProductInStock.getName().matches(bProductInStock.getName()))
+                                                {
+                                                    if (bProductInStock.isConditionIsOkay())
+                                                    {
+                                                        count++;
+                                                    }
+                                                }
+                                            }
+                                            stock += count + "X " + aProductInStock.getName() + " in ok condition \n ";
+                                            alreadyCountedProducts.add(aProductInStock);
+                                        }
+                                        else
+                                        {
+                                            for (Product bProductInStock : productsInKitchenStock)
+                                            {
+                                                if (aProductInStock.getName().matches(bProductInStock.getName()))
+                                                {
+                                                    if (!bProductInStock.isConditionIsOkay())
+                                                    {
+                                                        count++;
+                                                    }
+                                                }
+                                            }
+                                            stock += count + "X " + aProductInStock.getName() + " in not ok condition \n ";
+                                            alreadyCountedProducts.add(aProductInStock);
+                                        }
+                                    }
+
+                                }
+
+
+                                kitchenStockText.setText(stock);
+
+                                break;
+
+                            case "not ok":
+                                Log.i("Products", "All products in stock before: " + productsInKitchenStock.toString());
+                                Log.i("Products", "Currently scanned product before: " + currentlyScannedProduct.toString());
+                                currentlyScannedProduct.setConditionIsOkay(false);
+                                Log.i("Products", "All products in stock after false: " + productsInKitchenStock.toString());
+
+                                for (int i = 0; i < amountOfScannedProduct; i++)
+                                {
+                                    //must copy over as new Product otherwise you just pass amountOfScannedProduct by reference, somehow?
+                                    productsInKitchenStock.add(new Product(currentlyScannedProduct.getBarcode(), currentlyScannedProduct.getName(), currentlyScannedProduct.getDescription(), currentlyScannedProduct.getCalories(), currentlyScannedProduct.getSalt(), currentlyScannedProduct.getFat(), currentlyScannedProduct.getSaturatedFat(), currentlyScannedProduct.getSugar(), false, currentlyScannedProduct.getUseByDate()));
+                                }
+
+                                for (Product aProductInStock : productsInKitchenStock)
+                                {
+                                    boolean hasAlreadyBeenCounted = false;
+
+                                    for (Product aCountedProduct : alreadyCountedProducts)
+                                    {
+                                        if (aCountedProduct.getName().matches(aProductInStock.getName()))
+                                        {
+                                            if (aCountedProduct.isConditionIsOkay() == aProductInStock.isConditionIsOkay())
+                                            {
+                                                hasAlreadyBeenCounted = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (!hasAlreadyBeenCounted)
+                                    {
+                                        int count = 0;
+                                        if (aProductInStock.isConditionIsOkay())
+                                        {
+                                            for (Product bProductInStock : productsInKitchenStock)
+                                            {
+                                                if (aProductInStock.getName().matches(bProductInStock.getName()))
+                                                {
+                                                    if (bProductInStock.isConditionIsOkay())
+                                                    {
+                                                        count++;
+                                                    }
+                                                }
+                                            }
+                                            stock += count + "X " + aProductInStock.getName() + " in ok condition \n ";
+                                            alreadyCountedProducts.add(aProductInStock);
+                                        }
+                                        else
+                                        {
+                                            for (Product bProductInStock : productsInKitchenStock)
+                                            {
+                                                if (aProductInStock.getName().matches(bProductInStock.getName()))
+                                                {
+                                                    if (!bProductInStock.isConditionIsOkay())
+                                                    {
+                                                        count++;
+                                                    }
+                                                }
+                                            }
+                                            stock += count + "X " + aProductInStock.getName() + " in not ok condition \n ";
+                                            alreadyCountedProducts.add(aProductInStock);
+                                        }
+                                    }
+
+                                }
+
+
+                                kitchenStockText.setText(stock);
+
+                                break;
+                            default:
+                                toSpeech.speak("Can you repeat that, please open with Okay or Not Okay. Followed by a number.", TextToSpeech.QUEUE_FLUSH, null, utteranceID_Amount);
+                                break;
+                        }
+                        break;
+                }
             }
         }
     }
@@ -761,6 +934,41 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
     }
     //++++++++[/Recognition Listener Code]
 //++++++++[Recognition Other Code]
+
+    private String sortThroughRecognizerResultsForQualityAndAmount(ArrayList<String> results, String[] matchablePhrases)
+    {
+        for (String aResult: results)
+        {
+            Log.i("Recog", "Sorting results for result: " + aResult);
+            for (String aPhrase: matchablePhrases)
+            {
+                Log.i("Recog", "Sorting results for result: " + aResult.toLowerCase().replace("-", " ") + " and Phrase: " + aPhrase.toLowerCase());
+                if((aResult.toLowerCase().replace("-"," ")).contains(aPhrase.toLowerCase()))
+                {
+                    Log.i("Recog", "Match Found");
+                    String restOfresult = aResult.toLowerCase().replace("-"," ");
+                    restOfresult = restOfresult.replace(aPhrase.toLowerCase(), "");
+                    restOfresult = restOfresult.trim();
+                    try
+                    {
+                        Log.i("Recog", "Parseing Amount from: " + restOfresult);
+                        amountOfScannedProduct = Integer.parseInt(restOfresult);
+                        Log.i("Recog", "Parse Succesful with amount: " + amountOfScannedProduct);
+                        return aPhrase;
+                    }
+                    catch (NumberFormatException e)
+                    {
+                        Log.e("Recog", "Error Parseing");
+                        amountOfScannedProduct = 0;
+                    }
+
+                }
+            }
+        }
+        Log.i("Recog", "No matches found, returning empty string \"\" .");
+        return "";
+    }/*
+
     private String sortThroughRecognizerResults(String[] results, String[] matchablePhrases)
     {
         for (String aResult: results)
@@ -780,6 +988,8 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
         return "";
     }
 
+
+
     private String sortThroughRecognizerResults(String[] results, String matchablePhrase)
     {
         for (String aResult: results)
@@ -793,12 +1003,14 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
         }
         Log.i("Recog", "No matches found, returning empty string \"\" .");
         return "";
-    }
+    }*/
+
 //++++++++[/Recognition Other Code]
 
     //++++++++[Text To Speech Code]
     private void setupTextToSpeech()
     {
+        isShuttingDownSpeech = false;
         toSpeech = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status)
@@ -823,14 +1035,38 @@ public class ShippingActivity extends AppCompatActivity implements RecognitionLi
                             @Override
                             public void run()
                             {
-                                switch (utteranceId)
+                                if(!isShuttingDownSpeech)
                                 {
-                                    case "QualityAsk": pingingRecogFor = pingingRecogFor_Quality; recognizer.startListening(recogIntent); break;
-                                    case "QuantityAsk": pingingRecogFor = pingingRecogFor_Quantity; recognizer.startListening(recogIntent); break;
-                                    case "QualityEdit": pingingRecogFor = pingingRecogFor_EditQuality; recognizer.startListening(recogIntent); break;
-                                    case "QuantityEdit": pingingRecogFor = pingingRecogFor_EditQuantity; recognizer.startListening(recogIntent); break;
-                                    case "DoEdit": pingingRecogFor = pingingRecogFor_doEdit; recognizer.startListening(recogIntent); break;
-                                    case "repeat": recognizer.startListening(recogIntent); break;
+                                    switch (utteranceId)
+                                    {
+                                        case "QualityAsk":
+                                            pingingRecogFor = pingingRecogFor_Quality;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "QuantityAsk":
+                                            pingingRecogFor = pingingRecogFor_Quantity;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "QualityEdit":
+                                            pingingRecogFor = pingingRecogFor_EditQuality;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "QuantityEdit":
+                                            pingingRecogFor = pingingRecogFor_EditQuantity;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "DoEdit":
+                                            pingingRecogFor = pingingRecogFor_doEdit;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case "repeat":
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                        case utteranceID_Amount:
+                                            pingingRecogFor = pingingRecogFor_Amount;
+                                            recognizer.startListening(recogIntent);
+                                            break;
+                                    }
                                 }
                             }
                         });

@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/party_app_final_background"
-    tools:context="com.deveire.dev.inventoryscanner.MainActivity">
+    tools:context="com.deveire.dev.inventoryscanner.KitchenActivity">
 
     <ScrollView
         android:id="@+id/scrollView"
